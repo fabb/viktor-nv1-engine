@@ -3,7 +3,7 @@ import NV1Engine from 'viktor-nv1-engine'
 
 const midiNoteOn = 144
 const midiNoteOff = 128
-const note = 100
+const note = 64
 const velocityOn = 100
 const velocityOff = 0
 
@@ -24,6 +24,11 @@ class ViktorNV1 extends Component {
     componentDidMount() {
         const AudioContext = global.AudioContext || global.webkitAudioContext
         const { dawEngine, patchLibrary } = NV1Engine.create(AudioContext, this.state.store)
+
+        const patchNames = patchLibrary.getDefaultNames()
+        patchLibrary.selectPatch(patchNames[2])
+        const patch = patchLibrary.getSelected().patch
+        dawEngine.loadPatch(patch)
 
         this.setState({
             dawEngine: dawEngine,
