@@ -36,6 +36,10 @@ class ViktorNV1 extends Component {
         })
     }
 
+    componentWillUnmount() {
+        this.state.dawEngine.audioContext.close()
+    }
+
     onMouseDown = () => {
         // audiocontext initially is in suspended state for most browsers, needs to be started on first user interaction
         const audioContext = this.state.dawEngine.audioContext
