@@ -3,11 +3,21 @@ import NV1Engine from 'viktor-nv1-engine'
 
 const midiNoteOn = 144
 const midiNoteOff = 128
-const note = 64
-const velocityOn = 100
 const velocityOff = 0
 
 class ViktorNV1 extends Component {
+    render() {
+        return (
+            <ViktorNV1SynthContextProvider>
+                <ViktorNV1SynthUI />
+            </ViktorNV1SynthContextProvider>
+        )
+    }
+}
+
+const ViktorNV1SynthContext = React.createContext({})
+
+class ViktorNV1SynthContextProvider extends Component {
     constructor(props) {
         super(props)
         this.state = {
@@ -42,6 +52,16 @@ class ViktorNV1 extends Component {
         this.state.dawEngine.audioContext.close()
     }
 
+    startContextIfNotStarted = () => {
+        // audiocontext initially is in suspended state for most browsers, needs to be started on first user interaction
+        const audioContext = this.state.dawEngine.audioContext
+        if (audioContext.state !== 'running') {
+            audioContext.resume().then(() => {
+                console.log('Playback resumed successfully')
+            })
+        }
+    }
+
     onPatchChange = ({ newPatchName }) => {
         const patchLibrary = this.state.patchLibrary
         patchLibrary.selectPatch(newPatchName)
@@ -52,21 +72,13 @@ class ViktorNV1 extends Component {
         })
     }
 
-    onMouseDown = () => {
-        // audiocontext initially is in suspended state for most browsers, needs to be started on first user interaction
-        const audioContext = this.state.dawEngine.audioContext
-        if (audioContext.state !== 'running') {
-            audioContext.resume().then(() => {
-                console.log('Playback resumed successfully')
-            })
-        }
-
+    noteOn = ({ note, velocity }) => {
         this.state.dawEngine.externalMidiMessage({
-            data: [midiNoteOn, note, velocityOn],
+            data: [midiNoteOn, note, velocity],
         })
     }
 
-    onMouseUp = () => {
+    noteOff = ({ note }) => {
         this.state.dawEngine.externalMidiMessage({
             data: [midiNoteOff, note, velocityOff],
         })
@@ -75,42 +87,71 @@ class ViktorNV1 extends Component {
     render() {
         const patchLibrary = this.state.patchLibrary
         const patchNames = patchLibrary && patchLibrary.getDefaultNames && patchLibrary.getDefaultNames()
-        return (
-            <div>
-                <PatchSelect patchNames={patchNames} selectedPatchName={this.state.selectedPatchName} onPatchChange={this.onPatchChange} />
-                <button onMouseDown={this.onMouseDown} onMouseUp={this.onMouseUp}>
-                    Play Note
-                </button>
-            </div>
-        )
+        const selectedPatchName = patchLibrary && patchLibrary.getSelected && patchLibrary.getSelected().name
+        const contextValue = {
+            startContextIfNotStarted: this.startContextIfNotStarted,
+            noteOn: this.noteOn,
+            noteOff: this.noteOff,
+            patchNames: patchNames,
+            selectedPatchName: selectedPatchName,
+            onPatchChange: this.onPatchChange,
+        }
+        return <ViktorNV1SynthContext.Provider value={contextValue}>{this.props.children}</ViktorNV1SynthContext.Provider>
     }
 }
 
-class PatchSelect extends Component {
-    handleChange = event => {
-        const newPatchName = event.target.value
-        this.props.onPatchChange({ newPatchName })
-    }
-
-    render() {
-        const patchNames = this.props.patchNames
-        return (
+const ViktorNV1SynthUI = props => (
+    <ViktorNV1SynthContext.Consumer>
+        {value => (
             <div>
-                <label htmlFor="patch">Patch: </label>
-                <select id="patch" value={this.props.selectedPatchName} onChange={this.handleChange}>
-                    {patchNames
-                        ? this.props.patchNames.map(patchName => {
-                              return (
-                                  <option key={patchName} value={patchName}>
-                                      {patchName}
-                                  </option>
-                              )
-                          })
-                        : 'loading...'}
-                </select>
+                <PatchSelect {...value} />
+                <Keyboard {...value} />
             </div>
-        )
-    }
+        )}
+    </ViktorNV1SynthContext.Consumer>
+)
+
+const PatchSelect = ({ patchNames, selectedPatchName, onPatchChange }) => {
+    return (
+        <div>
+            <label htmlFor="patch">Patch: </label>
+            <select
+                id="patch"
+                value={selectedPatchName}
+                onChange={event => {
+                    const newPatchName = event.target.value
+                    onPatchChange({ newPatchName })
+                }}
+            >
+                {patchNames
+                    ? patchNames.map(patchName => {
+                          return (
+                              <option key={patchName} value={patchName}>
+                                  {patchName}
+                              </option>
+                          )
+                      })
+                    : 'loading...'}
+            </select>
+        </div>
+    )
+}
+
+const Keyboard = ({ startContextIfNotStarted, noteOn, noteOff }) => {
+    const note = 64
+    return (
+        <button
+            onMouseDown={() => {
+                startContextIfNotStarted()
+                noteOn({ note: note, velocity: 100 })
+            }}
+            onMouseUp={() => {
+                noteOff({ note: note })
+            }}
+        >
+            Play Note
+        </button>
+    )
 }
 
 export default ViktorNV1
