@@ -18,6 +18,7 @@ class ViktorNV1 extends Component {
             },
             dawEngine: {},
             patchLibrary: {},
+            selectedPatchName: '',
         }
     }
 
@@ -33,11 +34,22 @@ class ViktorNV1 extends Component {
         this.setState({
             dawEngine: dawEngine,
             patchLibrary: patchLibrary,
+            selectedPatchName: patchLibrary.getSelected().name,
         })
     }
 
     componentWillUnmount() {
         this.state.dawEngine.audioContext.close()
+    }
+
+    onPatchChange = ({ newPatchName }) => {
+        const patchLibrary = this.state.patchLibrary
+        patchLibrary.selectPatch(newPatchName)
+        const patch = patchLibrary.getSelected().patch
+        this.state.dawEngine.loadPatch(patch)
+        this.setState({
+            selectedPatchName: patchLibrary.getSelected().name,
+        })
     }
 
     onMouseDown = () => {
@@ -61,10 +73,42 @@ class ViktorNV1 extends Component {
     }
 
     render() {
+        const patchLibrary = this.state.patchLibrary
+        const patchNames = patchLibrary && patchLibrary.getDefaultNames && patchLibrary.getDefaultNames()
         return (
-            <button onMouseDown={this.onMouseDown} onMouseUp={this.onMouseUp}>
-                Play Note
-            </button>
+            <div>
+                <PatchSelect patchNames={patchNames} selectedPatchName={this.state.selectedPatchName} onPatchChange={this.onPatchChange} />
+                <button onMouseDown={this.onMouseDown} onMouseUp={this.onMouseUp}>
+                    Play Note
+                </button>
+            </div>
+        )
+    }
+}
+
+class PatchSelect extends Component {
+    handleChange = event => {
+        const newPatchName = event.target.value
+        this.props.onPatchChange({ newPatchName })
+    }
+
+    render() {
+        const patchNames = this.props.patchNames
+        return (
+            <div>
+                <label htmlFor="patch">Patch: </label>
+                <select id="patch" value={this.props.selectedPatchName} onChange={this.handleChange}>
+                    {patchNames
+                        ? this.props.patchNames.map(patchName => {
+                              return (
+                                  <option key={patchName} value={patchName}>
+                                      {patchName}
+                                  </option>
+                              )
+                          })
+                        : 'loading...'}
+                </select>
+            </div>
         )
     }
 }
